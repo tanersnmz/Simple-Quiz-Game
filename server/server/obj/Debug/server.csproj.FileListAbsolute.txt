@@ -1,0 +1,9 @@
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\bin\Debug\server.exe.config
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\bin\Debug\server.exe
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\bin\Debug\server.pdb
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.csprojResolveAssemblyReference.cache
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.Form1.resources
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.Properties.Resources.resources
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.csproj.GenerateResource.Cache
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.exe
+C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.pdb

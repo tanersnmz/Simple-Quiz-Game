@@ -7,3 +7,12 @@ C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\ser
 C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.csproj.GenerateResource.Cache
 C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.exe
 C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\obj\Debug\server.pdb
+D:\repos\GitHub\CS408_Project\server\server\bin\Debug\server.exe.config
+D:\repos\GitHub\CS408_Project\server\server\obj\Debug\server.exe
+D:\repos\GitHub\CS408_Project\server\server\obj\Debug\server.pdb
+D:\repos\GitHub\CS408_Project\server\server\bin\Debug\server.exe
+D:\repos\GitHub\CS408_Project\server\server\bin\Debug\server.pdb
+D:\repos\GitHub\CS408_Project\server\server\obj\Debug\server.csprojResolveAssemblyReference.cache
+D:\repos\GitHub\CS408_Project\server\server\obj\Debug\server.Form1.resources
+D:\repos\GitHub\CS408_Project\server\server\obj\Debug\server.Properties.Resources.resources
+D:\repos\GitHub\CS408_Project\server\server\obj\Debug\server.csproj.GenerateResource.Cache

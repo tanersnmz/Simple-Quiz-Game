@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -31,6 +33,12 @@ namespace server
         public player addPoint(double point)
         {
             this.points = this.points + point;
+            return this;
+        }
+
+        public player zeroPoint()
+        {
+            this.points = 0;
             return this;
         }
     }
@@ -62,6 +70,7 @@ namespace server
         int currentQuestionNumber = 0;
         int idCount = 0;
         bool isQuizStarted = false;
+        int disconnectedCount = 0;
 
         public Form1()
         {
@@ -119,8 +128,9 @@ namespace server
 
         private void readQuestionsTxt()
         {
-            string[] lines = System.IO.File.ReadAllLines(@"C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\questions.txt");
-            for(int i=0; i<lines.Length; i=i+2)
+            string path = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), @"..\..\questions.txt");
+            List<string> lines = File.ReadLines(path).ToList();
+            for (int i=0; i<lines.Count; i=i+2)
             {
                 question newQuestion = new question(lines[i], Int32.Parse(lines[i + 1]));
                 questions.Add(newQuestion);
@@ -139,7 +149,21 @@ namespace server
                 users[k].socket.Close();
             }
 
+            users.Clear();
+            questions.Clear();
             serverSocket.Close();
+
+            serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            numOfQuestions = 0;
+            terminating = false;
+            listening = false;
+            isEnoughUser = false;
+            answeredUserCount = 0;
+            currentQuestionNumber = 0;
+            idCount = 0;
+            isQuizStarted = false;
+            disconnectedCount = 0;
         }
 
         private void Accept()
@@ -176,20 +200,49 @@ namespace server
                         else
                         {
                             richTextBoxLogs.AppendText(nameOfClient + " tries to connect but this name already connected.\n");
-                            buffer = Encoding.Default.GetBytes("Connection Failed! This name is already in use. Try with another name.");
-                            newClient.Send(buffer);
+                            sendMessage(newClient, "Connection Failed! This name is already in use. Try with another name.");
                             newClient.Close();
                         }
                     }
 
-                    if (!isQuizStarted)
+                    Thread externalUserThread = new Thread(externalUser);
+                    externalUserThread.IsBackground = true;
+                    externalUserThread.Start();
+
+                    if (!updateOrGetIsQuizStarted(1))
                     {
                         answers = new int[users.Count];
-                        isQuizStarted = true;
+                        updateOrGetIsQuizStarted(3);
                         readQuestionsTxt();
                         Quiz();
                         terminateQuiz();
                     }
+                }
+                catch
+                {
+                    if (terminating)
+                    {
+                        listening = false;
+                    }
+                    else
+                    {
+                        richTextBoxLogs.AppendText("The socket stopped working.\n");
+                    }
+
+                }
+            }
+        }
+
+
+        private void externalUser()
+        {
+            while (listening)
+            {
+                try
+                {
+                    Socket newClient = serverSocket.Accept();
+                    sendMessage(newClient, "Connection Failed! There is a running quiz right now!");
+                    newClient.Close();
                 }
                 catch
                 {
@@ -226,7 +279,7 @@ namespace server
                 }
                 catch
                 {
-                    richTextBoxLogs.AppendText("There is a problem in! Check the connection...\n");
+                    richTextBoxLogs.AppendText("There is a problem in sendMessage! Check the connection...\n");
                     terminating = true;
                     textBoxPort.Enabled = true;
                     buttonListen.Enabled = true;
@@ -278,19 +331,26 @@ namespace server
                     if (!terminating)
                     {
                         richTextBoxLogs.AppendText(player.name+" has disconnected\n");
+                        disconnectedCount += 1;
                     }
                     player.socket.Close();
-                    users.Remove(player);
                     connected = false;
-                    if (isQuizStarted)
+                    Thread.Sleep(1000);
+                    if (updateOrGetIsQuizStarted(1) && disconnectedCount != 2)
                     {
                         foreach (player user in users)
                         {
-                            sendMessage(user.socket, "The other player is disconnected. You win the game!");
-                            user.socket.Close();
-                            users.Remove(user);
-                            terminateQuiz();
-                            break;
+                            if (user.id != player.id)
+                            {
+                                sendMessage(user.socket, "The other player is disconnected. You win the game!");
+                                users[player.id] = player.zeroPoint();
+                                sendMessage(user.socket, getScores());
+                                user.socket.Close();
+                                users.Remove(user);
+                                users.Remove(player);
+                                terminateQuiz();
+                                break;
+                            }
                         }
                     }
                 }
@@ -374,13 +434,38 @@ namespace server
             }
         }
 
+        private bool updateOrGetIsQuizStarted(int a)
+        {
+            lock (this)
+            {
+                if (a == 1) //get isQuizStarted
+                {
+                    return isQuizStarted;
+                }
+                else if (a == 2) //make isQuizStarted False
+                {
+                    isQuizStarted = false;
+                    return isQuizStarted;
+                }
+                else if (a == 3) //make isQuizStarted True
+                {
+                    isQuizStarted = true;
+                    return isQuizStarted;
+                }
+                else
+                {
+                    return isQuizStarted;
+                }
+            }
+            
+        }
+
         private void Quiz()
         {
-            if (isQuizStarted)
+            if (updateOrGetIsQuizStarted(1) && currentQuestionNumber < numOfQuestions)
             {
                 for (int i = 0; i < numOfQuestions; i++)
                 {
-                    richTextBoxLogs.AppendText(":" + i.ToString() + "\n");
                     int userCount = users.Count;
                     for (int k = 0; k < userCount; k++)
                     {
@@ -398,7 +483,7 @@ namespace server
                         {
                             sendMessage(users[k].socket, users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
                                                             users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
-                                                            "The correct answer was " + questions[i].answer.ToString() + "\n");
+                                                            "The correct answer was " + questions[i % questions.Count].answer.ToString() + "\n");
                             ;
                         }
                         int result = compareResult(answers[0], answers[1], questions[i % questions.Count].answer);
@@ -449,7 +534,7 @@ namespace server
                         sendMessage(users[k].socket, "You lose!");
                     }
                 }
-                isQuizStarted = false;
+                updateOrGetIsQuizStarted(2);
             }
         }
     }

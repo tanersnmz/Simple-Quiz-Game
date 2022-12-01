@@ -71,10 +71,15 @@ namespace client
                     string reply = receiveMessage(clientSocket);
                     if(reply.Contains("This name is already in use"))
                     {
-                        logs.AppendText(reply);
+                        logs.AppendText(reply + "\n");
                         clientSocket.Close();
                     }
 
+                    else if(reply.Contains("running quiz"))
+                    {
+                        logs.AppendText(reply + "\n");
+                        clientSocket.Close();
+                    }
                     else
                     {
                         buttonConnect.Enabled = false;

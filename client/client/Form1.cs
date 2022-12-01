@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
@@ -66,7 +67,8 @@ namespace client
             {
                 try
                 {
-                    clientSocket.Connect(IP, portNum);
+                    IPAddress ipAd = IPAddress.Parse(IP);
+                    clientSocket.Connect(ipAd, portNum);
                     sendMessage(clientSocket, textBoxName.Text);
                     string reply = receiveMessage(clientSocket);
                     if(reply.Contains("This name is already in use"))

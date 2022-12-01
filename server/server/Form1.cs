@@ -73,6 +73,7 @@ namespace server
         {
             listening = false;
             terminating = true;
+            serverSocket.Close();
             Environment.Exit(0);
         }
 
@@ -92,9 +93,10 @@ namespace server
                 buttonListen.Enabled = false;
 
                 Thread acceptThread = new Thread(Accept);
+                acceptThread.IsBackground = true;
                 acceptThread.Start();
 
-                richTextBoxLogs.AppendText("Started listening on port: " + serverPort + "\n");
+                richTextBoxLogs.AppendText("Started listening on port " + serverPort + "\n");
                 Int32.TryParse(textBoxNumberOfQuestions.Text, out numOfQuestions);
             }
             else
@@ -117,14 +119,12 @@ namespace server
 
         private void readQuestionsTxt()
         {
-            richTextBoxLogs.AppendText("in read questions\n");
             string[] lines = System.IO.File.ReadAllLines(@"C:\Users\Ahmet Furkan\Documents\GitHub\CS408_Project\server\server\questions.txt");
             for(int i=0; i<lines.Length; i=i+2)
             {
                 question newQuestion = new question(lines[i], Int32.Parse(lines[i + 1]));
                 questions.Add(newQuestion);
             }
-            richTextBoxLogs.AppendText("end read questions\n");
         }
 
         private void terminateQuiz()
@@ -226,13 +226,14 @@ namespace server
                 }
                 catch
                 {
-                    richTextBoxLogs.AppendText("There is a problem! Check the connection...\n");
+                    richTextBoxLogs.AppendText("There is a problem in! Check the connection...\n");
                     terminating = true;
                     textBoxPort.Enabled = true;
                     buttonListen.Enabled = true;
                     serverSocket.Close();
                 }
             }
+            Thread.Sleep(1000);
         }
 
         private void proccessAnswer(ref player player, ref bool connected, ref string message)
@@ -281,50 +282,63 @@ namespace server
                     player.socket.Close();
                     users.Remove(player);
                     connected = false;
-                    foreach (player user in users)
+                    if (isQuizStarted)
                     {
-                        sendMessage(user.socket, "The other player is disconnected. You win the game!");
-                        user.socket.Close();
-                        users.Remove(user);
-                        break;
+                        foreach (player user in users)
+                        {
+                            sendMessage(user.socket, "The other player is disconnected. You win the game!");
+                            user.socket.Close();
+                            users.Remove(user);
+                            terminateQuiz();
+                            break;
+                        }
                     }
-
                 }
             }
         }
 
         private string getScores()
         {
-            string result = "Score Table:\n";
+            string result = "Score Table\n";
             var sortedList = users.OrderByDescending(x => x.points);
             foreach (player user in sortedList)
             {
-                result += user.name + ": " + user.points.ToString() + "\n";
+                result += user.name + " - " + user.points.ToString() + "\n";
             }
             return result;
         }
 
         private int getWinner()
         {
-            var sortedList = users.OrderByDescending(x => x.points);
-            return sortedList.ElementAt(0).id;
+            if (users[0].points > users[1].points)
+            {
+                return 0;
+            }
+            else if (users[1].points > users[0].points)
+            {
+                return 1;
+            }
+            else return -1;
         }
 
         private void sendQuestion(string question, player user)
         {
-            Byte[] buffer = Encoding.Default.GetBytes(currentQuestionNumber.ToString() + ":"+question);
-            try
+            if (currentQuestionNumber < numOfQuestions)
             {
-                richTextBoxLogs.AppendText((currentQuestionNumber+1).ToString() + ". question sent to "+ user.name +"\n");
-                user.socket.Send(buffer);
-            }
-            catch
-            {
-                richTextBoxLogs.AppendText("There is a problem! Check the connection...\n");
-                terminating = true;
-                textBoxPort.Enabled = true;
-                buttonListen.Enabled = true;
-                serverSocket.Close();
+                Byte[] buffer = Encoding.Default.GetBytes(currentQuestionNumber.ToString() + ":" + question);
+                try
+                {
+                    richTextBoxLogs.AppendText((currentQuestionNumber + 1).ToString() + ". question sent to " + user.name + "\n");
+                    user.socket.Send(buffer);
+                }
+                catch
+                {
+                    richTextBoxLogs.AppendText("There is a problem in! Check the connection...\n");
+                    terminating = true;
+                    textBoxPort.Enabled = true;
+                    buttonListen.Enabled = true;
+                    serverSocket.Close();
+                }
             }
         }
 
@@ -362,71 +376,80 @@ namespace server
 
         private void Quiz()
         {
-            for (int i = 0; i < numOfQuestions; i++)
+            if (isQuizStarted)
             {
-                int userCount = users.Count;
-                for (int k = 0; k < userCount; k++)
+                for (int i = 0; i < numOfQuestions; i++)
                 {
-                    sendQuestion(questions[i % questions.Count].questionString, users[k]);
-                }
-
-                while(answeredUserCount != userCount)
-                {
-                    ;
-                }
-
-                if (answeredUserCount == userCount)
-                {
+                    richTextBoxLogs.AppendText(":" + i.ToString() + "\n");
+                    int userCount = users.Count;
                     for (int k = 0; k < userCount; k++)
                     {
-                        sendMessage(users[k].socket, users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
-                                                        users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
-                                                        "The correct answer was " + questions[i].answer.ToString() + "\n");
+                        sendQuestion(questions[i % questions.Count].questionString, users[k]);
+                    }
+
+                    while (answeredUserCount != userCount)
+                    {
                         ;
                     }
-                    int result = compareResult(answers[0], answers[1], questions[i % questions.Count].answer);
-                    if (result == 0)
+
+                    if (answeredUserCount == userCount)
                     {
-                        users[0] = users[0].addPoint(1);
-                        sendMessage(users[0].socket, "You win! You get 1 point\n");
-                        sendMessage(users[1].socket, "You lose! You get 0 point\n");
+                        for (int k = 0; k < userCount; k++)
+                        {
+                            sendMessage(users[k].socket, users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
+                                                            users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
+                                                            "The correct answer was " + questions[i].answer.ToString() + "\n");
+                            ;
+                        }
+                        int result = compareResult(answers[0], answers[1], questions[i % questions.Count].answer);
+                        if (result == 0)
+                        {
+                            users[0] = users[0].addPoint(1);
+                            sendMessage(users[0].socket, "You win! You get 1 point\n");
+                            sendMessage(users[1].socket, "You lose! You get 0 point\n");
+                        }
+                        else if (result == 1)
+                        {
+                            users[1] = users[1].addPoint(1);
+                            sendMessage(users[1].socket, "You win! You get 1 point\n");
+                            sendMessage(users[0].socket, "You lose! You get 0 point\n");
+                        }
+                        else
+                        {
+                            users[0] = users[0].addPoint(0.5);
+                            users[1] = users[1].addPoint(0.5);
+                            sendMessage(users[1].socket, "Tie! You get 0.5 point\n");
+                            sendMessage(users[0].socket, "Tie! You get 0.5 point\n");
+
+                        }
+
+                        for (int k = 0; k < userCount; k++)
+                        {
+                            sendMessage(users[k].socket, getScores());
+                        }
+                        incrementCurrentQuestionNumber();
+                        updateAnsweredUserCount(-2);
                     }
-                    else if (result == 1)
+                }
+                for (int k = 0; k < users.Count; k++)
+                {
+                    sendMessage(users[k].socket, "The quiz is over!");
+                    sendMessage(users[k].socket, getScores());
+                    int winner = getWinner();
+                    if(winner == -1)
                     {
-                        users[1] = users[1].addPoint(1);
-                        sendMessage(users[1].socket, "You win! You get 1 point\n");
-                        sendMessage(users[0].socket, "You lose! You get 0 point\n");
+                        sendMessage(users[k].socket, "Tie!");
+                    }
+                    else if (k == winner)
+                    {
+                        sendMessage(users[k].socket, "Congratulations! You win!");
                     }
                     else
                     {
-                        users[0] = users[0].addPoint(0.5);
-                        users[1] = users[1].addPoint(0.5);
-                        sendMessage(users[1].socket, "Tie! You get 0.5 point\n");
-                        sendMessage(users[0].socket, "Tie! You get 0.5 point\n");
-
+                        sendMessage(users[k].socket, "You lose!");
                     }
-
-                    for (int k = 0; k < userCount; k++)
-                    {
-                        sendMessage(users[k].socket, getScores());
-                    }
-                    incrementCurrentQuestionNumber();
-                    updateAnsweredUserCount(-2);
                 }
-            }
-            for (int k = 0; k < users.Count; k++)
-            {
-                sendMessage(users[k].socket, "The quiz is over!");
-                sendMessage(users[k].socket, getScores());
-                int winner = getWinner();
-                if( k == winner)
-                {
-                    sendMessage(users[k].socket, "Congratulations! You win!");
-                }
-                else
-                {
-                    sendMessage(users[k].socket, "You lose!");
-                }
+                isQuizStarted = false;
             }
         }
     }

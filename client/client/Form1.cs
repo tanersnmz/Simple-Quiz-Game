@@ -31,6 +31,7 @@ namespace client
         {
             connected = false;
             terminating = true;
+            clientSocket.Close();
             Environment.Exit(0);
         }
 
@@ -45,11 +46,14 @@ namespace client
 
         private string receiveMessage(Socket socket)
         {
-            Byte[] buffer = new Byte[1024];
-            socket.Receive(buffer);
-            string message = Encoding.Default.GetString(buffer);
-            message = message.Substring(0, message.IndexOf("\0"));
-            return message;
+            lock (this)
+            {
+                Byte[] buffer = new Byte[1024];
+                socket.Receive(buffer);
+                string message = Encoding.Default.GetString(buffer);
+                message = message.Substring(0, message.IndexOf("\0"));
+                return message;
+            }
         }
 
         private void buttonConnect_Click(object sender, EventArgs e)
@@ -84,6 +88,7 @@ namespace client
                         logs.AppendText("Waiting for the quiz to start...\n");
 
                         Thread receiveThread = new Thread(Receive);
+                        receiveThread.IsBackground = true;
                         receiveThread.Start();
                     }
                 }
@@ -100,13 +105,16 @@ namespace client
 
         private void handleQuestion(string message)
         {
-            string[] splittedMessage = message.Split(':');
-            string qNumber = splittedMessage[0];
-            currentQuestion = Int32.Parse(qNumber);
-            string question = splittedMessage[1];
-            logs.AppendText("Question " + (currentQuestion+1).ToString() + " - " + question + "\n");
-            textBoxAnswer.Enabled = true;
-            buttonSend.Enabled = true;
+            lock (this)
+            {
+                string[] splittedMessage = message.Split(':');
+                string qNumber = splittedMessage[0];
+                currentQuestion = Int32.Parse(qNumber);
+                string question = splittedMessage[1];
+                logs.AppendText("Question " + (currentQuestion + 1).ToString() + " - " + question + "\n");
+                textBoxAnswer.Enabled = true;
+                buttonSend.Enabled = true;
+            }
         }
 
         private void Receive()

@@ -528,6 +528,7 @@ namespace server
                         updateAnsweredUserCount(-2);
                     }
                 }
+                bool isFirst = true;
                 for (int k = 0; k < users.Count; k++)
                 {
                     sendMessage(users[k].socket, "The quiz is over!");
@@ -536,15 +537,24 @@ namespace server
                     if(winner == -1)
                     {
                         sendMessage(users[k].socket, "Tie!");
+                        if (isFirst)
+                        {
+                            richTextBoxLogs.AppendText("The quiz is over!\n");
+                            richTextBoxLogs.AppendText("The result is tie\n");
+                            isFirst = false;
+                        }
                     }
                     else if (k == winner)
                     {
                         sendMessage(users[k].socket, "Congratulations! You win!");
+                        richTextBoxLogs.AppendText("The quiz is over!\n");
+                        richTextBoxLogs.AppendText(users[k].name + " is the winner\n");
                     }
                     else
                     {
                         sendMessage(users[k].socket, "You lose!");
                     }
+                    isFirst = false;
                 }
                 updateOrGetIsQuizStarted(2);
             }

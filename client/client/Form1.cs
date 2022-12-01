@@ -148,7 +148,7 @@ namespace client
                     }
                     else if(incomingMessage != "")
                     {
-                        logs.AppendText("Server: " + incomingMessage + "\n");
+                        logs.AppendText("Server: \n" + incomingMessage + "\n");
                     }
                 }
                 catch

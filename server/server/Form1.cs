@@ -472,6 +472,8 @@ namespace server
                         sendQuestion(questions[i % questions.Count].questionString, users[k]);
                     }
 
+                    richTextBoxLogs.AppendText("Question - "+ (i+1).ToString() +" "+ questions[i % questions.Count].questionString + "\n\n");
+
                     while (answeredUserCount != userCount)
                     {
                         ;
@@ -484,20 +486,28 @@ namespace server
                             sendMessage(users[k].socket, users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
                                                             users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
                                                             "The correct answer was " + questions[i % questions.Count].answer.ToString() + "\n");
-                            ;
+                            
                         }
+
+                        richTextBoxLogs.AppendText(users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
+                                                            users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
+                                                            "The correct answer was " + questions[i % questions.Count].answer.ToString() + "\n\n");
                         int result = compareResult(answers[0], answers[1], questions[i % questions.Count].answer);
                         if (result == 0)
                         {
                             users[0] = users[0].addPoint(1);
                             sendMessage(users[0].socket, "You win! You get 1 point\n");
+                            richTextBoxLogs.AppendText(users[0].name + " get 1 point\n");
                             sendMessage(users[1].socket, "You lose! You get 0 point\n");
+                            richTextBoxLogs.AppendText(users[1].name + " get 0 point\n\n");
                         }
                         else if (result == 1)
                         {
                             users[1] = users[1].addPoint(1);
                             sendMessage(users[1].socket, "You win! You get 1 point\n");
                             sendMessage(users[0].socket, "You lose! You get 0 point\n");
+                            richTextBoxLogs.AppendText(users[0].name + " get 0 point\n");
+                            richTextBoxLogs.AppendText(users[1].name + " get 1 point\n\n");
                         }
                         else
                         {
@@ -505,13 +515,15 @@ namespace server
                             users[1] = users[1].addPoint(0.5);
                             sendMessage(users[1].socket, "Tie! You get 0.5 point\n");
                             sendMessage(users[0].socket, "Tie! You get 0.5 point\n");
-
+                            richTextBoxLogs.AppendText(users[0].name + " get 0.5 point\n");
+                            richTextBoxLogs.AppendText(users[1].name + " get 0.5 point\n\n");
                         }
 
                         for (int k = 0; k < userCount; k++)
                         {
                             sendMessage(users[k].socket, getScores());
                         }
+                        richTextBoxLogs.AppendText(getScores() + "\n");
                         incrementCurrentQuestionNumber();
                         updateAnsweredUserCount(-2);
                     }

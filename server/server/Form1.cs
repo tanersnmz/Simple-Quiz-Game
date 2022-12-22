@@ -29,7 +29,10 @@ namespace server
             this.name = name;
             this.points = 0.0;
             this.socket = socket;
+
+
         }
+
 
         // add given point to the player
         public player addPoint(double point)
@@ -63,8 +66,10 @@ namespace server
         // required declarations
         Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         List<player> users = new List<player>();
+        List<player> waitingList = new List<player>();
         List<question> questions = new List<question>();
         int[] answers;
+        List<string> removed = new List<string>();
 
         int numOfQuestions = 0;
         bool terminating = false;
@@ -72,6 +77,7 @@ namespace server
         bool isEnoughUser = false;
         int answeredUserCount = 0;
         int currentQuestionNumber = 0;
+        int currentUserNumber = 0;
         int idCount = 0;
         bool isQuizStarted = false;
         int disconnectedCount = 0;
@@ -104,7 +110,7 @@ namespace server
                 // after approptiate port entered, input textboxes and listen button become unavailable
                 listening = true;
                 textBoxPort.Enabled = false;
-                textBoxNumberOfQuestions.Enabled = false;
+                textBoxNumberOfQuestions.Enabled = true;
                 buttonListen.Enabled = false;
 
 
@@ -113,12 +119,27 @@ namespace server
                 acceptThread.Start();
 
                 richTextBoxLogs.AppendText("Started listening on port " + serverPort + "\n");
-                Int32.TryParse(textBoxNumberOfQuestions.Text, out numOfQuestions); // convert num of questions to integer
             }
             else // appropriate error message for port number
             {
                 richTextBoxLogs.AppendText("Please check port number \n");
             }
+        }
+
+        private void printUsers()
+        {
+            string a = "Users: ";
+            for (int i = 0; i < users.Count; i++)
+            {
+                a += users[i].name + "-" + users[i].name + " ";
+            }
+            a += "\nWaiting List: ";
+            for (int i = 0; i < waitingList.Count; i++)
+            {
+                a += waitingList[i].name + "-" + waitingList[i].name + " ";
+            }
+            a += "\n";
+            richTextBoxLogs.AppendText(a);
         }
 
         // check if a user with given name already connected to the game
@@ -131,7 +152,39 @@ namespace server
                     return true;
                 }
             }
+
+            for (int i = 0; i < waitingList.Count; i++)
+            {
+                if (newName == waitingList[i].name)
+                {
+                    return true;
+                }
+            }
             return false;
+        }
+
+        private bool isInUsers(int id)
+        {
+            for (int i = 0; i < users.Count; i++)
+            {
+                if (id == users[i].id)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private int indexFromId(int id)
+        {
+            for (int i = 0; i < users.Count; i++)
+            {
+                if (id == users[i].id)
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         // read questions from the given text file
@@ -150,35 +203,38 @@ namespace server
         // terminate the ongoing quiz
         private void terminateQuiz()
         {
-            // enable buttons and input text boxes
-            textBoxPort.Enabled = true;
-            textBoxNumberOfQuestions.Enabled = true;
-            buttonListen.Enabled = true;
-            isQuizStarted = false;
-
-            // close each users sockets
-            for (int k = 0; k < users.Count; k++)
-            {
-                users[k].socket.Close();
-            }
-
-            // delete/clear all users and questions and delete servers socket
-            users.Clear();
-            questions.Clear();
-            serverSocket.Close();
-
-            // create new socket for the server
-            serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-
+            printUsers();
             numOfQuestions = 0;
             terminating = false;
-            listening = false;
-            isEnoughUser = false;
+            //listening = false;
+            //isEnoughUser = false;
             answeredUserCount = 0;
             currentQuestionNumber = 0;
-            idCount = 0;
-            isQuizStarted = false;
+            currentUserNumber = 0;
+            updateOrGetIsQuizStarted(2);
             disconnectedCount = 0;
+            buttonStartGame.Enabled = true;
+            removed.Clear();
+            for (int i = 0; i < users.Count; i++)
+            {
+                users[i] = users[i].zeroPoint();
+            }
+
+
+            for (int i = 0; i<waitingList.Count; i++)
+            {
+                player temp = waitingList[i];
+                users.Add(temp);
+            }
+
+            waitingList.Clear();
+
+            if (users.Count < 2)
+            {
+                isEnoughUser = false;
+                buttonStartGame.Enabled = false;
+            }
+            printUsers();
         }
 
         // accept players trying to connect
@@ -188,25 +244,22 @@ namespace server
             {
                 try
                 {
-                    while(!isEnoughUser) // while user number is not equal to 2, keep accepting users
+                    while(!updateOrGetIsQuizStarted(1)) // while the quiz is not started
                     {
-
                         Socket newClient = serverSocket.Accept();
                         Byte[] buffer = new Byte[1024];
                         newClient.Receive(buffer);
                         string nameOfClient = Encoding.Default.GetString(buffer);
                         nameOfClient = nameOfClient.Substring(0, nameOfClient.IndexOf("\0"));
                         
-                        if (!isNameExists(nameOfClient)) //check name of user is unique
+                        if (!isNameExists(nameOfClient) && !updateOrGetIsQuizStarted(1)) //check name of user is unique
                         {
                             //Create new player and add to the users list
                             player newUser = new player(idCount, nameOfClient, newClient);
                             users.Add(newUser);
                             idCount++;
                             sendMessage(newClient, "Connection Success!");
-
-                            // start listening from the user by recieve thread
-                            Thread receiveThread = new Thread(() => Receive(newUser));
+                            Thread receiveThread = new Thread(() => Receive(ref newUser));
                             receiveThread.IsBackground = true;
                             receiveThread.Start();
                             //log connected user
@@ -215,9 +268,22 @@ namespace server
                             if (users.Count == 2)
                             {
                                 isEnoughUser = true;
+                                buttonStartGame.Enabled = true;
                             }
                         }
-                        else // if player trying to connect doesnt have a unique name show error
+                        else if (!isNameExists(nameOfClient) && updateOrGetIsQuizStarted(1)) //check name of user is unique
+                        {
+                            player newUser = new player(idCount, nameOfClient, newClient);
+                            idCount++;
+                            waitingList.Add(newUser);
+                            sendMessage(newUser.socket, "There is a running quiz right now! Please wait");
+                            richTextBoxLogs.AppendText(nameOfClient + " is connected and put to the waiting list.\n");
+                            Thread receiveThread = new Thread(() => Receive(ref newUser));
+                            receiveThread.IsBackground = true;
+                            receiveThread.Start();
+                        }
+
+                        else // if player trying to connect doesn't have a unique name show error
                         {
                             richTextBoxLogs.AppendText(nameOfClient + " tries to connect but this name already connected.\n");
                             sendMessage(newClient, "Connection Failed! This name is already in use. Try with another name.");
@@ -226,18 +292,47 @@ namespace server
                     }
 
                     // --------------------------------------------------------------------------------//
-                    Thread externalUserThread = new Thread(externalUser);
-                    externalUserThread.IsBackground = true;
-                    externalUserThread.Start();
-
-                    // if quiz not started
-                    if (!updateOrGetIsQuizStarted(1))
+                    Socket newExternalClient = serverSocket.Accept();
+                    Byte[] bufferExternal = new Byte[1024];
+                    newExternalClient.Receive(bufferExternal);
+                    string nameOfClientExternal = Encoding.Default.GetString(bufferExternal);
+                    nameOfClientExternal = nameOfClientExternal.Substring(0, nameOfClientExternal.IndexOf("\0"));
+                    if (!isNameExists(nameOfClientExternal) && !updateOrGetIsQuizStarted(1)) //check name of user is unique
                     {
-                        answers = new int[users.Count]; // create answers array
-                        updateOrGetIsQuizStarted(3); // set isQuizStarted as TRUE
-                        readQuestionsTxt(); // read the questions from txt
-                        Quiz(); // start the quiz
-                        terminateQuiz(); // finish the quiz
+                        //Create new player and add to the users list
+                        player newUser = new player(idCount, nameOfClientExternal, newExternalClient);
+                        users.Add(newUser);
+                        idCount++;
+                        sendMessage(newExternalClient, "Connection Success!");
+                        Thread receiveThread = new Thread(() => Receive(ref newUser));
+                        receiveThread.IsBackground = true;
+                        receiveThread.Start();
+                        //log connected user
+                        richTextBoxLogs.AppendText(nameOfClientExternal + " is connected.\n");
+                        // condition update
+                        if (users.Count == 2)
+                        {
+                            isEnoughUser = true;
+                            buttonStartGame.Enabled = true;
+                        }
+                    }
+                    else if (!isNameExists(nameOfClientExternal) && updateOrGetIsQuizStarted(1)) //check name of user is unique
+                    {
+                        player newUser = new player(idCount, nameOfClientExternal, newExternalClient);
+                        idCount++;
+                        waitingList.Add(newUser);
+                        sendMessage(newUser.socket, "There is a running quiz right now! Please wait");
+                        richTextBoxLogs.AppendText(nameOfClientExternal + " is connected and put to the waiting list.\n");
+                        Thread receiveThread = new Thread(() => Receive(ref newUser));
+                        receiveThread.IsBackground = true;
+                        receiveThread.Start();
+                    }
+
+                    else // if player trying to connect doesn't have a unique name show error
+                    {
+                        richTextBoxLogs.AppendText(nameOfClientExternal + " tries to connect but this name already connected.\n");
+                        sendMessage(newExternalClient, "Connection Failed! This name is already in use. Try with another name.");
+                        newExternalClient.Close();
                     }
                 }
                 catch
@@ -251,7 +346,6 @@ namespace server
                     {
                         richTextBoxLogs.AppendText("The socket stopped working.\n");
                     }
-
                 }
             }
         }
@@ -265,8 +359,27 @@ namespace server
                 try
                 {
                     Socket newClient = serverSocket.Accept();
-                    sendMessage(newClient, "Connection Failed! There is a running quiz right now!");
-                    newClient.Close();
+                    Byte[] buffer = new Byte[1024];
+                    newClient.Receive(buffer);
+                    string nameOfClient = Encoding.Default.GetString(buffer);
+                    nameOfClient = nameOfClient.Substring(0, nameOfClient.IndexOf("\0"));
+      
+                    if (!isNameExists(nameOfClient)) //check name of user is unique
+                    {
+                        //Create new player and add to the users list
+                        player newUser = new player(idCount, nameOfClient, newClient);
+                        waitingList.Add(newUser);
+                        idCount++;
+                        sendMessage(newUser.socket, "There is a running quiz right now! Please wait");
+                        richTextBoxLogs.AppendText(nameOfClient + " is connected and put to the waiting list.\n");
+
+                    }
+                    else // if player trying to connect doesn't have a unique name show error
+                    {
+                        richTextBoxLogs.AppendText(nameOfClient + " tries to connect but this name already connected.\n");
+                        sendMessage(newClient, "Connection Failed! This name is already in use. Try with another name.");
+                        newClient.Close();
+                    }
                 }
                 catch
                 {
@@ -276,7 +389,7 @@ namespace server
                     }
                     else
                     {
-                        richTextBoxLogs.AppendText("The socket stopped working.\n");
+                        richTextBoxLogs.AppendText("The socket stopped working ali.\n");
                     }
 
                 }
@@ -305,14 +418,14 @@ namespace server
                 }
                 catch
                 {
-                    richTextBoxLogs.AppendText("There is a problem in sendMessage! Check the connection...\n");
+                    richTextBoxLogs.AppendText("There is a problem! Check the connection...\n");
                     terminating = true;
                     textBoxPort.Enabled = true;
                     buttonListen.Enabled = true;
                     serverSocket.Close();
                 }
             }
-            Thread.Sleep(1000);
+            Thread.Sleep(100);
         }
 
         // process the answer string such that, it splits to question number and answer
@@ -347,7 +460,7 @@ namespace server
 
 
         // recieve input/answer from the player
-        private void Receive(player player)
+        private void Receive(ref player player)
         {
             bool connected = true; // set user as connected
 
@@ -368,27 +481,34 @@ namespace server
                         richTextBoxLogs.AppendText(player.name+" has disconnected\n");
                         disconnectedCount += 1;
                     }
+
+                    
+
                     // close the players socket and set connected status false, and wait for program to do same for other player(s)
                     player.socket.Close();
+                    if (isInUsers(player.id))
+                    {
+                        users.Remove(player);
+                        if (updateOrGetIsQuizStarted(1))
+                        {
+                            removed.Add(player.name);
+                        }
+                    }
+                    else
+                    {
+                        waitingList.Remove(player);
+                    }
+                    answers[player.id] = Int32.MaxValue;
+
+
                     connected = false;
                     Thread.Sleep(1000);
-                    if (updateOrGetIsQuizStarted(1) && disconnectedCount != 2) // if quiz is started and 2 players did not disconnected beacuse of termination of program (some player disconnected ingame)
+
+                    if (updateOrGetIsQuizStarted(1) && users.Count == 1) // if quiz is started and 2 players did not disconnected beacuse of termination of program (some player disconnected ingame)
                     {
-                        // for each player left in game, inform them they win the game and finish quiz
-                        foreach (player user in users) 
-                        {
-                            if (user.id != player.id)
-                            {
-                                sendMessage(user.socket, "The other player is disconnected. You win the game!");
-                                users[player.id] = player.zeroPoint(); // make each users points 0
-                                sendMessage(user.socket, getScores()); // send each user the score table
-                                user.socket.Close(); // close each users sockets
-                                users.Remove(user); // delete the user
-                                users.Remove(player); // delete the player
-                                terminateQuiz(); // finish the quiz appropriately
-                                break;
-                            }
-                        }
+                        sendMessage(users[0].socket, "The other players are disconnected. You win the game!");
+                        sendMessage(users[0].socket, getScores()); // send each user the score table
+                        terminateQuiz(); // finish the quiz appropriately
                     }
                 }
             }
@@ -403,21 +523,54 @@ namespace server
             {
                 result += user.name + " - " + user.points.ToString() + "\n";
             }
+
+            foreach (string name in removed)
+            {
+                result += name + " - 0\n";
+            }
+
             return result;
         }
 
         // find and return who is the winner users index, return -1 if game is tie
-        private int getWinner()
+        private int[] getWinner()
         {
-            if (users[0].points > users[1].points)
+            int[] result = new int[users.Count];
+            double maxPoint = users[0].points;
+            int maxCount = 0;
+            for (int i = 0; i < users.Count; i++)
             {
-                return 0;
+                if (users[i].points > maxPoint)
+                {
+                    maxPoint = users[i].points;
+                }
             }
-            else if (users[1].points > users[0].points)
+
+            for (int i = 0; i < users.Count; i++)
             {
-                return 1;
+                if (users[i].points == maxPoint)
+                {
+                    maxCount++;
+                }
             }
-            else return -1;
+
+            for (int k = 0; k < users.Count; k++)
+            {
+                if (users[k].points == maxPoint && maxCount == 1)
+                {
+                    result[k] = 2; //adam kazandı
+                }
+                else if (users[k].points == maxPoint && maxCount > 1)
+                {
+                    result[k] = 1; //adamlar kazandı
+                }
+                else
+                {
+                    result[k] = 0; //basaramadik abi
+                }
+            }
+
+            return result;
         }
 
         // send the given question to the user 
@@ -444,20 +597,48 @@ namespace server
         }
 
         // compare 2 users answers with true answer and return the users index who is closer to true answer, return -1 if it is tie
-        private int compareResult(int firstUserAnswer, int secondUserAnswer, int actualResult)
+        private double[] compareResult(int[] answers, int actualResult)
         {
-            if (Math.Abs(actualResult - firstUserAnswer) < Math.Abs(actualResult - secondUserAnswer))
+            int[] distance = new int[answers.Length];
+            double[] points = new double[answers.Length];
+            int minDist = Int32.MaxValue;
+            int minCount = 0;
+            for(int i = 0; i < answers.Length; i++)
             {
-                return 0;
+                int d = Math.Abs(answers[i] - actualResult);
+                distance[i] = d;
+                if(d < minDist)
+                {
+                    minDist = d;
+                }
             }
-            else if (Math.Abs(actualResult - firstUserAnswer) > Math.Abs(actualResult - secondUserAnswer))
+
+            for (int i = 0; i < answers.Length; i++)
             {
-                return 1;
+                if (distance[i] == minDist)
+                {
+                    minCount++;
+                }
             }
-            else
+
+
+            for (int k = 0; k < answers.Length; k++)
             {
-                return -1;
+                if(distance[k] == minDist && minCount == 1)
+                {
+                    points[k] = 1.0;
+                }
+                else if (distance[k] == minDist && minCount != 1)
+                {
+                    points[k] = 0.5;
+                }
+                else
+                {
+                    points[k] = 0.0;
+                }
             }
+
+            return points;
         }
 
         // update the number of users answered the question by i
@@ -477,7 +658,14 @@ namespace server
                 currentQuestionNumber += 1;
             }
         }
-
+        // increment the current quesitons number by one
+        private void incrementCurrentUserNumber()
+        {
+            lock (this)
+            {
+                currentUserNumber += 1;
+            }
+        }
 
         // depending on parameter a, return if quiz is started, OR set state of quiz being started as FALSE and return if quiz is started, OR set state of quiz being started as TRUE and return if quiz is started
         // if choice is not 1,2 or 3, return if quiz is started (isQuizStarted)
@@ -516,8 +704,7 @@ namespace server
                 for (int i = 0; i < numOfQuestions; i++) // iterate over all questions
                 {
                     // send question to the all users
-                    int userCount = users.Count;
-                    for (int k = 0; k < userCount; k++) 
+                    for (int k = 0; k < users.Count; k++) 
                     {
                         sendQuestion(questions[i % questions.Count].questionString, users[k]);
                     }
@@ -526,57 +713,52 @@ namespace server
                     richTextBoxLogs.AppendText("Question - "+ (i+1).ToString() +" "+ questions[i % questions.Count].questionString + "\n\n");
 
                     // Wait if all users did not answer
-                    while (answeredUserCount != userCount)
+                    while (answeredUserCount != users.Count)
                     {
                         ;
                     }
 
                     // if all users answered
-                    if (answeredUserCount == userCount)
+                    if (answeredUserCount == users.Count)
                     {
-                        // send all users answers and the correct answer to the each user and server log
-                        for (int k = 0; k < userCount; k++)
+                        string answersString = "";
+                        for (int a = 0; a < users.Count; a++)
                         {
-                            sendMessage(users[k].socket, users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
-                                                            users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
-                                                            "The correct answer was " + questions[i % questions.Count].answer.ToString() + "\n");
-                            
+                            answersString += users[a].name + "\'s answer is " + answers[users[a].id].ToString() + "\n";
+                        }
+                        answersString += "The correct answer was " + questions[i % questions.Count].answer.ToString() + "\n";
+                        // send all users answers and the correct answer to the each user and server log
+                        for (int k = 0; k < users.Count; k++)
+                        {
+                            sendMessage(users[k].socket, answersString);
                         }
 
-                        richTextBoxLogs.AppendText(users[0].name + "\'s answer is " + answers[0].ToString() + "\n" +
-                                                            users[1].name + "\'s answer is " + answers[1].ToString() + "\n" +
-                                                            "The correct answer was " + questions[i % questions.Count].answer.ToString() + "\n\n");
+                        richTextBoxLogs.AppendText(answersString + "\n");
 
                         // decide who win that round, distribute appropriate points to users with appropriate message
-                        int result = compareResult(answers[0], answers[1], questions[i % questions.Count].answer);
-                        if (result == 0) // if first user won
+                        double[] result = compareResult(answers, questions[i % questions.Count].answer);
+                        for (int b = 0; b < users.Count; b++)
                         {
-                            users[0] = users[0].addPoint(1);
-                            sendMessage(users[0].socket, "You win! You get 1 point\n");
-                            richTextBoxLogs.AppendText(users[0].name + " get 1 point\n");
-                            sendMessage(users[1].socket, "You lose! You get 0 point\n");
-                            richTextBoxLogs.AppendText(users[1].name + " get 0 point\n\n");
-                        }
-                        else if (result == 1) // if second user won
-                        {
-                            users[1] = users[1].addPoint(1);
-                            sendMessage(users[1].socket, "You win! You get 1 point\n");
-                            sendMessage(users[0].socket, "You lose! You get 0 point\n");
-                            richTextBoxLogs.AppendText(users[0].name + " get 0 point\n");
-                            richTextBoxLogs.AppendText(users[1].name + " get 1 point\n\n");
-                        }
-                        else // if it is a Tie
-                        {
-                            users[0] = users[0].addPoint(0.5);
-                            users[1] = users[1].addPoint(0.5);
-                            sendMessage(users[1].socket, "Tie! You get 0.5 point\n");
-                            sendMessage(users[0].socket, "Tie! You get 0.5 point\n");
-                            richTextBoxLogs.AppendText(users[0].name + " get 0.5 point\n");
-                            richTextBoxLogs.AppendText(users[1].name + " get 0.5 point\n\n");
+                            users[b] = users[b].addPoint(result[b]);
+                            if(result[b] == 1.0)
+                            {
+                                sendMessage(users[b].socket, "You win! You get 1 point\n");
+                                richTextBoxLogs.AppendText(users[b].name + " get 1 point\n");
+                            }
+                            else if (result[b] == 0.5)
+                            {
+                                sendMessage(users[b].socket, "Tie! You get 0.5 point\n");
+                                richTextBoxLogs.AppendText(users[b].name + " get 0.5 point\n");
+                            }
+                            else
+                            {
+                                sendMessage(users[b].socket, "You lose! You get 0 point\n");
+                                richTextBoxLogs.AppendText(users[b].name + " get 0 point\n");
+                            }
                         }
 
                         // print scores to all users and to server log
-                        for (int k = 0; k < userCount; k++)
+                        for (int k = 0; k < users.Count; k++)
                         {
                             sendMessage(users[k].socket, getScores());
                         }
@@ -584,42 +766,61 @@ namespace server
 
                         // increment question number and update answered users back to zero
                         incrementCurrentQuestionNumber();
-                        updateAnsweredUserCount(-2);
+                        updateAnsweredUserCount(-1*users.Count);
                     }
                 }
-                bool isFirst = true; // used to check ending message only printed once to server log in case of tie
+                int[] winnerList = getWinner();
+                richTextBoxLogs.AppendText("The quiz is over!\n");
                 // for each user send a message about their winner/loser/tie status and inform that quiz is over
                 for (int k = 0; k < users.Count; k++)
                 {
                     sendMessage(users[k].socket, "The quiz is over!");
                     sendMessage(users[k].socket, getScores());
-                    int winner = getWinner();
-                    if(winner == -1) // if game is tie
-                    {
-                        sendMessage(users[k].socket, "Tie!");
-                        // print message only once to server log
-                        if (isFirst)
-                        {
-                            richTextBoxLogs.AppendText("The quiz is over!\n");
-                            richTextBoxLogs.AppendText("The result is tie\n");
-                            isFirst = false; // set status for message already printed
-                        }
-                    }
-                    else if (k == winner) // if iterated user won, show appropriate message
-                    {
-                        sendMessage(users[k].socket, "Congratulations! You win!");
-                        richTextBoxLogs.AppendText("The quiz is over!\n");
-                        richTextBoxLogs.AppendText(users[k].name + " is the winner\n");
-                    }
-                    else // if iterated user lost, show aproopriate message
-                    {
-                        sendMessage(users[k].socket, "You lose!");
-                    }
-                    isFirst = false;
                 }
+
+                for(int j = 0; j < users.Count; j++)
+                {
+                    if(winnerList[j] == 2)
+                    {
+                        sendMessage(users[j].socket, "Congratulations! You are the only winner!");
+                        richTextBoxLogs.AppendText(users[j].name + " is the only winner\n");
+                    }
+
+                    else if (winnerList[j] == 1)
+                    {
+                        sendMessage(users[j].socket, "Congratulations! You are one of the winners!");
+                        richTextBoxLogs.AppendText(users[j].name + " is one of the winners\n");
+                    }
+                    else
+                    {
+                        sendMessage(users[j].socket, "You lose!");
+                    }
+                }
+
                 // update status of if quiz is started as False (set isQuizStarted as FALSE)
                 updateOrGetIsQuizStarted(2);
             }
+        }
+
+        private void startQuiz()
+        {
+            if (!updateOrGetIsQuizStarted(1))
+            {
+                buttonStartGame.Enabled = false;
+                answers = new int[idCount+1]; // create answers array
+                updateOrGetIsQuizStarted(3); // set isQuizStarted as TRUE
+                readQuestionsTxt(); // read the questions from txt
+                Quiz(); // start the quiz
+                terminateQuiz();
+            }
+        }
+
+        private void buttonStartGame_Click(object sender, EventArgs e)
+        {
+            Int32.TryParse(textBoxNumberOfQuestions.Text, out numOfQuestions); // convert num of questions to integer
+            Thread quizThread = new Thread(startQuiz);
+            quizThread.IsBackground = true;
+            quizThread.Start();
         }
     }
 }

@@ -34,11 +34,12 @@
             this.buttonListen = new System.Windows.Forms.Button();
             this.label2 = new System.Windows.Forms.Label();
             this.textBoxNumberOfQuestions = new System.Windows.Forms.TextBox();
+            this.buttonStartGame = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // textBoxPort
             // 
-            this.textBoxPort.Location = new System.Drawing.Point(225, 79);
+            this.textBoxPort.Location = new System.Drawing.Point(175, 79);
             this.textBoxPort.Name = "textBoxPort";
             this.textBoxPort.Size = new System.Drawing.Size(123, 22);
             this.textBoxPort.TabIndex = 0;
@@ -46,7 +47,7 @@
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(52, 79);
+            this.label1.Location = new System.Drawing.Point(12, 79);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(38, 17);
             this.label1.TabIndex = 1;
@@ -54,15 +55,15 @@
             // 
             // richTextBoxLogs
             // 
-            this.richTextBoxLogs.Location = new System.Drawing.Point(451, 12);
+            this.richTextBoxLogs.Location = new System.Drawing.Point(304, 12);
             this.richTextBoxLogs.Name = "richTextBoxLogs";
-            this.richTextBoxLogs.Size = new System.Drawing.Size(352, 560);
+            this.richTextBoxLogs.Size = new System.Drawing.Size(352, 493);
             this.richTextBoxLogs.TabIndex = 2;
             this.richTextBoxLogs.Text = "";
             // 
             // buttonListen
             // 
-            this.buttonListen.Location = new System.Drawing.Point(225, 153);
+            this.buttonListen.Location = new System.Drawing.Point(175, 118);
             this.buttonListen.Name = "buttonListen";
             this.buttonListen.Size = new System.Drawing.Size(123, 23);
             this.buttonListen.TabIndex = 3;
@@ -73,7 +74,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(55, 115);
+            this.label2.Location = new System.Drawing.Point(12, 165);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(146, 17);
             this.label2.TabIndex = 4;
@@ -81,16 +82,29 @@
             // 
             // textBoxNumberOfQuestions
             // 
-            this.textBoxNumberOfQuestions.Location = new System.Drawing.Point(225, 115);
+            this.textBoxNumberOfQuestions.Enabled = false;
+            this.textBoxNumberOfQuestions.Location = new System.Drawing.Point(175, 162);
             this.textBoxNumberOfQuestions.Name = "textBoxNumberOfQuestions";
             this.textBoxNumberOfQuestions.Size = new System.Drawing.Size(123, 22);
             this.textBoxNumberOfQuestions.TabIndex = 5;
+            // 
+            // buttonStartGame
+            // 
+            this.buttonStartGame.Enabled = false;
+            this.buttonStartGame.Location = new System.Drawing.Point(175, 197);
+            this.buttonStartGame.Name = "buttonStartGame";
+            this.buttonStartGame.Size = new System.Drawing.Size(123, 23);
+            this.buttonStartGame.TabIndex = 6;
+            this.buttonStartGame.Text = "Start Game";
+            this.buttonStartGame.UseVisualStyleBackColor = true;
+            this.buttonStartGame.Click += new System.EventHandler(this.buttonStartGame_Click);
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(8F, 16F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(815, 584);
+            this.ClientSize = new System.Drawing.Size(667, 517);
+            this.Controls.Add(this.buttonStartGame);
             this.Controls.Add(this.textBoxNumberOfQuestions);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.buttonListen);
@@ -112,6 +126,7 @@
         private System.Windows.Forms.Button buttonListen;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox textBoxNumberOfQuestions;
+        private System.Windows.Forms.Button buttonStartGame;
     }
 }
 

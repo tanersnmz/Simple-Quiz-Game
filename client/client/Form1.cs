@@ -85,8 +85,18 @@ namespace client
 
                     else if (reply.Contains("running quiz")) // if a game is alreadt started/running at the server
                     {
+                        logs.AppendText("Connected to the server!\n");
                         logs.AppendText(reply + "\n");
-                        clientSocket.Close();
+                        buttonConnect.Enabled = false;
+                        buttonDisconnect.Enabled = true;
+                        textBoxIp.Enabled = false;
+                        textBoxPort.Enabled = false;
+                        textBoxName.Enabled = false;
+                        connected = true;
+
+                        Thread receiveThread = new Thread(Receive);
+                        receiveThread.IsBackground = true;
+                        receiveThread.Start();
                     }
                     else // if user is okay to join game
                     {

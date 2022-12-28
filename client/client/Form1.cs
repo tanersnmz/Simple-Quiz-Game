@@ -200,11 +200,20 @@ namespace client
         private void buttonSend_Click(object sender, EventArgs e)
         {
             // send answer message with the current question to the server
-            string message = currentQuestion.ToString() + ":" + textBoxAnswer.Text;
-            sendMessage(clientSocket, message);
-            // disable answer and send buttons
-            textBoxAnswer.Enabled = false;
-            buttonSend.Enabled = false;
+            int temp;
+            if (Int32.TryParse(textBoxAnswer.Text, out temp))
+            {
+                string message = currentQuestion.ToString() + ":" + textBoxAnswer.Text;
+                sendMessage(clientSocket, message);
+                // disable answer and send buttons
+                textBoxAnswer.Enabled = false;
+                buttonSend.Enabled = false;
+            }
+            else
+            {
+                logs.AppendText("Your answer is invalid. Please check!\n");
+            }
+            
         }
 
         // handler of disconnect button clicked

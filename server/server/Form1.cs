@@ -251,7 +251,6 @@ namespace server
             disconnectedCount = 0;
             buttonStartGame.Enabled = true;
             removed.Clear();
-            richTextBoxLogs.AppendText("in terminate quiz \n");
             for (int i = 0; i < users.Count; i++)
             {
                 users[i] = users[i].zeroPoint();
@@ -542,7 +541,6 @@ namespace server
                         answers[player.id] = Int32.MaxValue;
                     }
 
-                    printUsers();
 
                     if (users.Count < 2)
                     {
@@ -628,8 +626,6 @@ namespace server
         // if cannot sent, show error, termiante the process and close server socket
         private void sendQuestion(string question, player user)
         {
-            richTextBoxLogs.AppendText("Current Q#: " + currentQuestionNumber.ToString() + "\n");
-            richTextBoxLogs.AppendText("# Q: " + numOfQuestions.ToString() + "\n");
             if (currentQuestionNumber < numOfQuestions)
             {
                 Byte[] buffer = Encoding.Default.GetBytes(currentQuestionNumber.ToString() + ":" + question);
@@ -673,10 +669,7 @@ namespace server
                     minCount++;
                 }
             }
-            richTextBoxLogs.AppendText("Min count: " + minCount.ToString() + "\n");
-            richTextBoxLogs.AppendText("Min distance: " + minDist.ToString() + "\n");
 
-            string zort = "Points: ";
             for (int k = 0; k < answers.Length; k++)
             {
                 if(distance[k] == minDist && minCount == 1)
@@ -691,10 +684,7 @@ namespace server
                 {
                     points[k] = 0.0;
                 }
-                zort += points[k].ToString() + " ";
             }
-            zort += "\n";
-            richTextBoxLogs.AppendText(zort);
             return points;
         }
 
@@ -760,7 +750,6 @@ namespace server
             {
                 for (int i = 0; i < numOfQuestions; i++) // iterate over all questions
                 {
-                    printUsers();
                     // send question to the all users
                     for (int k = 0; k < users.Count; k++) 
                     {
@@ -835,7 +824,6 @@ namespace server
                     }
                 }
             }
-            richTextBoxLogs.AppendText("Hocam quiz tam anlamıyla bitti\n");
         }
 
         private void startQuiz()
@@ -857,10 +845,17 @@ namespace server
 
         private void buttonStartGame_Click(object sender, EventArgs e)
         {
-            Int32.TryParse(textBoxNumberOfQuestions.Text, out numOfQuestions); // convert num of questions to integer
-            Thread quizThread = new Thread(startQuiz);
-            quizThread.IsBackground = true;
-            quizThread.Start();
+            // convert num of questions to integer
+            if (Int32.TryParse(textBoxNumberOfQuestions.Text, out numOfQuestions))
+            {
+                Thread quizThread = new Thread(startQuiz);
+                quizThread.IsBackground = true;
+                quizThread.Start();
+            }
+            else
+            {
+                richTextBoxLogs.AppendText("Invalid number of questions. Please Check!\n");
+            }
         }
     }
 }
